@@ -1,5 +1,12 @@
 
 # PyTestStub
+
+## lcorcodilos' modifications
+- Use pytest instead of unittest.
+- Automatically include the import statements for each function and class. 
+- Double underscore after `test` in test function name (ex. `test__this_is_my_func_name`).
+
+## Original description
 PyTestStub reads your Python code to generate unit test stubs. Given a module name,
 it walks each file in the module. If it encounters a file without a
 corresponding test file, it generates one with test stubs for each function
