@@ -68,11 +68,11 @@ def generateUnitTest(root, fileName, includeInternal=False):
 	classes = []
 	classToMethods = collections.defaultdict(list)
 	functions = []
-	imports = []
+	imports = collections.defaultdict(list)
 	for node in tree.body:
 		nodeType = type(node)
 		if nodeType is ast.ClassDef:
-			imports.append('from %s import %s'%(module,node.name))
+			imports[module].append(node.name)
 			if not node.name.startswith('_') or includeInternal:
 				classes.append(node.name)
 
@@ -82,7 +82,7 @@ def generateUnitTest(root, fileName, includeInternal=False):
 					classToMethods[node.name].append(child.name)
 
 		elif nodeType is ast.FunctionDef:
-			imports.append('from %s import %s'%(module,node.name))
+			imports[module].append(node.name)
 			if not node.name.startswith('_') or includeInternal:
 				functions.append(node.name)
 
@@ -114,6 +114,7 @@ def generateUnitTest(root, fileName, includeInternal=False):
 
 	#Assemble the unit tests in the template
 	unitTestsStr = '\n\n'.join(unitTest for unitTest in unitsTests if unitTest != '')
-	unitTest = ('\n'.join(imports)+Templates.unitTestBase) % unitTestsStr
+	importLines = ['from %s import %s'%(fname,', '.join(imports[fname])) for fname in imports]
+	unitTest = ('\n'.join(importLines)+Templates.unitTestBase) % unitTestsStr
 
 	return unitTest
