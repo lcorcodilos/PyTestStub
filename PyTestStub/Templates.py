@@ -20,7 +20,7 @@
 # SOFTWARE.
 
 functionTest = '''
-	def test_%s(self):
+	def test__%s(self):
 		raise NotImplementedError() #TODO: test %s'''
 
 classTest = '''class %sTest():
