@@ -23,7 +23,7 @@ functionTest = '''
 	def test_%s(self):
 		raise NotImplementedError() #TODO: test %s'''
 
-classTest = '''class %sTest(unittest.TestCase):
+classTest = '''class %sTest():
 	"""
 	%s
 	"""
@@ -44,7 +44,7 @@ classTest = '''class %sTest(unittest.TestCase):
 %s'''
 
 unitTestBase = '''
-import unittest
+import pytest
 
 %s
 '''
