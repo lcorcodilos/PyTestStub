@@ -42,13 +42,13 @@ class ModuleInfo():
 		return Templates.unitTestBase.format(self.import_str) + '\n'.join(o.get_str() for o in self.objs)
 
 class ClassInfo():
-	def __init__(self,astobj,includeInternal) -> None:
+	def __init__(self,astobj,includeInternal):
 		self.astobj = astobj
 		self.name = astobj.name
 		self.methods = []
 		self.init = None
 		for child in astobj.body:
-			if child.name == '__init__':
+			if hasattr(child,'name') and child.name == '__init__':
 				self.init = child
 			elif (isinstance(child,ast.FunctionDef) and not child.name.startswith('_') or includeInternal):
 				method = FuncInfo(child,classmethod=True)
@@ -87,7 +87,13 @@ class FuncInfo():
 	def find_raises(self,astobj):
 		out = []
 		if isinstance(astobj,ast.Raise):
-			out.append(astobj.exc.func.id)
+			if hasattr(astobj,'exc'):
+				out.append(astobj.exc.func.id)
+			elif hasattr(astobj,'type'):
+				out.append(astobj.type.func.id)
+			else:
+				print (astunparse.dump(astobj))
+				raise AttributeError('Cannot find raise id.')
 		elif isinstance(astobj,list):
 			for o in astobj:
 				out.extend(self.find_raises(o))
@@ -154,12 +160,12 @@ def generateUnitTest(root, fileName, includeInternal=False):
 		return None
 
 	#Walk the AST
-	for node in [n for n in tree.body if (not n.name.startswith('_') or includeInternal)]:
-		if isinstance(node,ast.ClassDef):
-			moduleObj.add(ClassInfo(node,includeInternal))
-
-		elif isinstance(node,ast.FunctionDef):
-			moduleObj.add(FuncInfo(node))
+	for node in tree.body:
+		if hasattr(node,'name') and (not node.name.startswith('_') or includeInternal):
+			if isinstance(node,ast.ClassDef):
+				moduleObj.add(ClassInfo(node,includeInternal))
+			elif isinstance(node,ast.FunctionDef):
+				moduleObj.add(FuncInfo(node))
 
 	if len(moduleObj.objs) == 0:
 		print('No classes or functions in %s' % path)
