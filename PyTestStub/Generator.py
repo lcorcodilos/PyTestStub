@@ -72,7 +72,7 @@ class FuncInfo():
 	def __init__(self,astobj,classmethod=False):
 		self.astobj = astobj
 		self.name = astobj.name
-		self.classprefix = 'cls.obj.' if classmethod else ''
+		self.classprefix = 'self.obj.' if classmethod else ''
 		self.constructor = self.unparse_func()
 		self.raises = self.find_raises(self.astobj)
 
@@ -96,10 +96,10 @@ class FuncInfo():
 		return out
 
 	def get_str(self):
-		out = [Templates.functionTest.format(self.name, self.classprefix+self.constructor)]
+		out = [Templates.functionTest.format(self.name, self.constructor)]
 		raise_counts = RaiseCounter()
 		for r in self.raises:
-			raise_str = 'with pytest.raises({0}):\n\t#\t {1}'.format(r,self.classprefix+self.constructor)
+			raise_str = 'with pytest.raises({0}):\n\t#\t {1}'.format(r,self.constructor)
 			variation_on_name = self.name + '_' + r+str(raise_counts[r])
 			stub = Templates.functionTest.format(variation_on_name,raise_str)
 			out.append(stub)

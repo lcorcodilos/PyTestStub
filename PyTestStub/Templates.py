@@ -20,12 +20,12 @@
 # SOFTWARE.
 
 functionTest = '''
-def test__{0}(self):
+def test__{0}():
 	# {1}
 	raise NotImplementedError() #TODO: test {0}'''
 
 def methodTest(t=functionTest):
-	return t.replace('\n','\n\t')
+	return t.replace('\n','\n\t').replace('():','(self):')
 
 classTest = '''
 class {0}Test():
