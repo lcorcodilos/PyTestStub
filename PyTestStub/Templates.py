@@ -24,7 +24,8 @@ def test__{0}(self):
 	# {1}
 	raise NotImplementedError() #TODO: test {0}'''
 
-methodTest = functionTest.replace('\n','\n\t')
+def methodTest(t=functionTest):
+	return t.replace('\n','\n\t')
 
 classTest = '''
 class {0}Test():

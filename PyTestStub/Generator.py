@@ -20,6 +20,8 @@
 # SOFTWARE.
 
 import ast, os, astunparse
+from collections import defaultdict
+from typing import Counter
 
 from PyTestStub import Templates
 
@@ -63,7 +65,7 @@ class ClassInfo():
 		return out
 
 	def get_str(self):
-		methods_str = '\n'.join(Templates.methodTest.format(m.name,m.constructor) for m in self.methods)
+		methods_str = '\n'.join(m.get_str() for m in self.methods)
 		return Templates.classTest.format(self.name,methods_str,self.unparse_class())
 
 class FuncInfo():
@@ -71,18 +73,46 @@ class FuncInfo():
 		self.astobj = astobj
 		self.name = astobj.name
 		self.classprefix = 'cls.obj.' if classmethod else ''
-		self.constructor = self.unparse_func(astobj)
+		self.constructor = self.unparse_func()
+		self.raises = self.find_raises(self.astobj)
 
-	def unparse_func(self,astobj):
-		out = astunparse.unparse(astobj).split('\n')
+	def unparse_func(self):
+		out = astunparse.unparse(self.astobj).split('\n')
 		for l in out:
 			if 'def ' in l:
 				out = l.replace('def ','').replace(':','').replace('self','').replace('(,','(').replace('( ','(').strip()
 				break
 		return self.classprefix+out
 
+	def find_raises(self,astobj):
+		out = []
+		if isinstance(astobj,ast.Raise):
+			out.append(astobj.exc.func.id)
+		elif isinstance(astobj,list):
+			for o in astobj:
+				out.extend(self.find_raises(o))
+		elif hasattr(astobj,'body'):
+			out.extend(self.find_raises(astobj.body))
+		return out
+
 	def get_str(self):
-		return Templates.functionTest.format(self.name, self.classprefix+self.constructor)
+		out = [Templates.functionTest.format(self.name, self.classprefix+self.constructor)]
+		raise_counts = RaiseCounter()
+		for r in self.raises:
+			raise_str = 'with pytest.raises({0}):\n\t#\t {1}'.format(r,self.classprefix+self.constructor)
+			variation_on_name = self.name + '_' + r+str(raise_counts[r])
+			stub = Templates.functionTest.format(variation_on_name,raise_str)
+			out.append(stub)
+		if self.classprefix != '':
+			out = [Templates.methodTest(stub) for stub in out]
+		return '\n'.join(out)
+
+class RaiseCounter():
+	def __init__(self):
+		self.counter = Counter()
+	def __getitem__(self,key):
+		self.counter[key]+=1
+		return self.counter[key]
 
 def generateUnitTest(root, fileName, includeInternal=False):
 	"""
