@@ -19,11 +19,70 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import ast
-import collections
-import os
+import ast, os, astunparse
 
 from PyTestStub import Templates
+
+class ModuleInfo():
+	def __init__(self,module):
+		self.module = module
+		self.imports = []
+		self.objs = []
+
+	def add(self,obj):
+		self.objs.append(obj)
+	
+	@property
+	def import_str(self):
+		return 'from %s import %s'%(self.module,', '.join([o.name for o in self.objs]))
+
+	def get_str(self):
+		return Templates.unitTestBase.format(self.import_str) + '\n'.join(o.get_str() for o in self.objs)
+
+class ClassInfo():
+	def __init__(self,astobj,includeInternal) -> None:
+		self.astobj = astobj
+		self.name = astobj.name
+		self.methods = []
+		self.init = None
+		for child in astobj.body:
+			if child.name == '__init__':
+				self.init = child
+			elif (isinstance(child,ast.FunctionDef) and not child.name.startswith('_') or includeInternal):
+				method = FuncInfo(child,classmethod=True)
+				self.methods.append(method)
+
+	def unparse_class(self):
+		if self.init == None:
+			return 'cls.obj = %s()'%self.name
+		out = astunparse.unparse(self.init).split('\n')
+		for l in out:
+			if 'def __init__' in l:
+				out = l.replace('def __init__','cls.obj = ').replace(':','').replace('self','').replace('(,','(').replace('( ','(').strip()
+				break
+		return out
+
+	def get_str(self):
+		methods_str = '\n'.join(Templates.methodTest.format(m.name,m.constructor) for m in self.methods)
+		return Templates.classTest.format(self.name,methods_str,self.unparse_class())
+
+class FuncInfo():
+	def __init__(self,astobj,classmethod=False):
+		self.astobj = astobj
+		self.name = astobj.name
+		self.classprefix = 'cls.obj.' if classmethod else ''
+		self.constructor = self.unparse_func(astobj)
+
+	def unparse_func(self,astobj):
+		out = astunparse.unparse(astobj).split('\n')
+		for l in out:
+			if 'def ' in l:
+				out = l.replace('def ','').replace(':','').replace('self','').replace('(,','(').replace('( ','(').strip()
+				break
+		return self.classprefix+out
+
+	def get_str(self):
+		return Templates.functionTest.format(self.name, self.classprefix+self.constructor)
 
 def generateUnitTest(root, fileName, includeInternal=False):
 	"""
@@ -47,11 +106,11 @@ def generateUnitTest(root, fileName, includeInternal=False):
 	pathParts = os.path.split(path)
 	fileName = pathParts[-1]
 	module, _ = os.path.splitext(fileName)
+	moduleObj = ModuleInfo(module)
 
 	#Load the file
 	try:
-		with open(path) as f:
-			text = f.read()
+		text = open(path).read()
 	except UnicodeDecodeError as ude:
 		print('Unicode decode error for %s: %s' % (path, ude))
 		return None
@@ -65,56 +124,15 @@ def generateUnitTest(root, fileName, includeInternal=False):
 		return None
 
 	#Walk the AST
-	classes = []
-	classToMethods = collections.defaultdict(list)
-	functions = []
-	imports = collections.defaultdict(list)
-	for node in tree.body:
-		nodeType = type(node)
-		if nodeType is ast.ClassDef:
-			imports[module].append(node.name)
-			if not node.name.startswith('_') or includeInternal:
-				classes.append(node.name)
+	for node in [n for n in tree.body if (not n.name.startswith('_') or includeInternal)]:
+		if isinstance(node,ast.ClassDef):
+			moduleObj.add(ClassInfo(node,includeInternal))
 
-			#Track methods
-			for child in node.body:
-				if type(child) is ast.FunctionDef and not child.name.startswith('_') or includeInternal:
-					classToMethods[node.name].append(child.name)
+		elif isinstance(node,ast.FunctionDef):
+			moduleObj.add(FuncInfo(node))
 
-		elif nodeType is ast.FunctionDef:
-			imports[module].append(node.name)
-			if not node.name.startswith('_') or includeInternal:
-				functions.append(node.name)
-
-	if len(functions) == 0 and len(classes) == 0:
+	if len(moduleObj.objs) == 0:
 		print('No classes or functions in %s' % path)
 		return None
-
-	#Generate a functions test?
-	unitsTests = []
-	if len(functions) > 0:
-		moduleTestComment = 'Tests for functions in the %s module.' % module
-		functionTests = '\n'.join(Templates.functionTest % (function, function) for function in functions)
-
-		unitsTests.append(Templates.classTest % (
-			module, moduleTestComment,
-			functionTests
-		))
-
-	#Generate class tests?
-	if len(classes) > 0:
-		for c in classes:
-			classTestComment = 'Tests for methods in the %s class.' % c
-			methodTests = '\n'.join(Templates.functionTest % (method, method) for method in classToMethods[c] if method[0] != '_')
-			unitsTests.append(Templates.classTest % (
-				c, classTestComment,
-				methodTests,
-			))
-			#TODO: generate instance construction stub
-
-	#Assemble the unit tests in the template
-	unitTestsStr = '\n\n'.join(unitTest for unitTest in unitsTests if unitTest != '')
-	importLines = ['from %s import %s'%(fname,', '.join(imports[fname])) for fname in imports]
-	unitTest = ('\n'.join(importLines)+Templates.unitTestBase) % unitTestsStr
-
-	return unitTest
+	else:
+		return moduleObj.get_str()

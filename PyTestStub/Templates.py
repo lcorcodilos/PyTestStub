@@ -20,31 +20,21 @@
 # SOFTWARE.
 
 functionTest = '''
-	def test__%s(self):
-		raise NotImplementedError() #TODO: test %s'''
+def test__{0}(self):
+	# {1}
+	raise NotImplementedError() #TODO: test {0}'''
 
-classTest = '''class %sTest():
-	"""
-	%s
-	"""
+methodTest = functionTest.replace('\n','\n\t')
 
+classTest = '''
+class {0}Test():
 	@classmethod
-	def setUpClass(cls):
+	def setup_class(cls):
+		# {2}
 		pass #TODO
-
-	@classmethod
-	def tearDownClass(cls):
-		pass #TODO
-
-	def setUp(self):
-		pass #TODO
-
-	def tearDown(self):
-		pass #TODO
-%s'''
+{1}'''
 
 unitTestBase = '''
 import pytest
-
-%s
+{0}
 '''
