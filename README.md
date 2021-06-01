@@ -3,8 +3,13 @@
 
 ## lcorcodilos' modifications
 - Use pytest instead of unittest.
+- Factorize code so each function and class is handled as an object.
 - Automatically include the import statements for each function and class. 
+- Automatically generate code for function/method in a comment (to use as a starting point for writing the test).
+    - Do the same for initializing the class object when testing class.
+	- Both use astunparse which is now added as a requirement in setup.py
 - Double underscore after `test` in test function name (ex. `test__this_is_my_func_name`).
+- By personal preference, drop the tear down part of the class testing.
 
 ## Original description
 PyTestStub reads your Python code to generate unit test stubs. Given a module name,
